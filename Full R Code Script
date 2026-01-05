@@ -129,3 +129,10 @@ acf(residuals_model1, main="ACF of Residuals for Model 1")
 residuals_model2 <- residuals(model_2)
 acf(residuals_model2, main = "ACF of Residuals for Model 2")
 
+# Robustness checks #
+model_3 <- lm(anti_appelant ~ salience_lag1 + appellant_lag1, data = benefits)
+model_4 <- lm(anti_appelant ~ salience_lag2 + appellant_lag2, data = benefits)
+summary(model_3)
+summary(model_4)
+stargazer(model_1, model_2, model_3, model_4, type = "text", column.labels = c("Lag 1", "Lag 2", "Robustness Test Lag1", "Robustness Test Lag2"), out = "regression_table4.text")
+
