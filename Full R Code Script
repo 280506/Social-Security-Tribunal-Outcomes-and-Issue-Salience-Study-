@@ -1,0 +1,131 @@
+install.packages("zoo")
+library(zoo)
+
+benefits$year_quarter <- as.yearqtr(paste(benefits$year, benefits$financial_quat), format = "%Y %m")
+benefits$year_quarter_date <- as.Date(benefits$year_quarter)
+
+
+#Figure 1 of Case Outcome Trends#
+library(ggplot2)
+ggplot(benefits, aes(x = year_quarter, y = anti_appelant)) +
+  geom_line(color = "steelblue") +
+  geom_point(size = 1.2) +
+  labs(
+    title = "Anti-appellant outcomes over time",
+    x = "Financial Quarter and Year",
+    y = "Number of Case Outcomes Anti-Appellant "
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+  
+#Figure 2 of Salience Trends#
+library(ggplot2)
+ggplot(benefits, aes(x = year_quarter, y = Total_articles)) +
+  geom_line(color = "red") +
+  geom_point(size = 1.2) +
+  labs(
+    title = "Issue Salience Over Time",
+    x = "Financial quarter and Year",
+    y = "Total Number of Relevant Articles"
+  ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1)
+  )
+
+#Figure 3 Showing Trends Between Article Tones and Case Outcomes#
+library(ggplot2)
+ggplot(benefits, aes(x = year_quarter)) +
+  geom_bar(
+    aes(y = percetage_anti),
+    fill = "skyblue" , 
+    stat = "identity", 
+    alpha = 0.8
+    ) +
+  geom_text( 
+    aes(y = percetage_anti, 
+        label = round(percetage_anti, 1)
+        ),
+    size = 3, 
+    vjust = -0.3,
+    na.rm = TRUE
+  ) +
+    geom_line(aes(y = percent_positive, group = 1, color = "positive"), linewidth = 1.2) +
+    geom_line(aes(y = percent_negative, group = 1, color = "negative"), linewidth = 1.2) +
+    geom_line(aes(y = percent_neutral, group = 1, color = "neutral"), linewidth = 1.2 ) +
+    scale_y_continuous(limits = c(0, 100), name = "Percentage (%)") +
+    scale_x_date(
+      date_breaks = "1 year",
+      date_labels = "%Y" 
+) +
+  scale_color_manual(values = c(
+    "positive" = "darkgreen", 
+    "negative" = "red", 
+    "neutral" = "purple" 
+)) +
+  theme_minimal(base_size = 12) +
+  theme(
+    axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
+    plot.title = element_text(hjust = 0.5),
+    legend.title = element_blank(),
+    panel.grid.major.x = element_blank()
+) +
+  labs(title = "Tone of Articles 2009-2023 in relation to Case Outcomes")
+
+library(zoo)
+
+#Process of lagging the data variables for 1 quarter lags #
+benefits$quarter <- as.yearqtr(benefits$quarter_label, format = "%Y Q%q")
+benefits <- benefits[order(benefits$quarter), ]
+library(dplyr)
+benefits <- benefits %>%
+  mutate(salience_lag1 = lag(Total_articles, 1))
+benefits <- benefits %>%
+  mutate(appellant_lag1 = lag(anti_appelant, 1))
+benefits <- benefits %>%
+  mutate(positive_lag1 = lag(total_positive, 1))
+benefits <- benefits %>%
+  mutate(negative_lag1 = lag(total_negative, 1))
+benefits <- benefits %>%
+  mutate(neutral_lag1 = lag(total_neutral, 1))
+
+
+#First model with 1 quarter lags #
+model_1 <- lm(anti_appelant ~ salience_lag1 + appellant_lag1 + positive_lag1 + negative_lag1 + neutral_lag1, data = benefits)
+summary(model_1)
+head(benefits [, c("quarter_label", "Total_articles", "salience_lag1", "anti_appelant", "appellant_lag1", "positive_lag1", "negative_lag1", "neutral_lag1")], 6)
+
+install.packages("stargazer")
+library(stargazer)
+stargazer(model_1, type = "text", out = "regression_table.txt")
+
+#Process of lagging the data variables for 2 quarter lags # 
+benefits$quarter <- as.yearqtr(benefits$quarter_label, format = "%Y Q%q")
+benefits <- benefits[order(benefits$quarter), ]
+library(dplyr)
+benefits <- benefits %>%
+  mutate(appellant_lag2 = lag(anti_appelant, 2))
+benefits <- benefits %>%
+  mutate(salience_lag2 = lag(Total_articles, 2))
+benefits <- benefits %>%
+  mutate(positive_lag2 = lag(total_positive, 2))
+benefits <- benefits %>%
+  mutate(negative_lag2 = lag(total_negative, 2))
+benefits <- benefits %>%
+  mutate(neutral_lag2 = lag(total_neutral, 2))
+
+
+#Second model with 2 quarter lags # 
+model_2 <- lm(anti_appelant ~ salience_lag2 + appellant_lag2 + positive_lag2 + negative_lag2 + neutral_lag2, data = benefits)
+summary(model_2)
+stargazer(model_2, type = "text", out = "regression_table2.txt")
+stargazer(model_1, model_2, type = "text", column.labels = c("Lag 1", "Lag 2"), out = "regression_table3.txt")
+
+#AFC models to check residuals #
+residuals_model1 <- residuals(model1)
+acf(residuals_model1, main="ACF of Residuals for Model 1")
+residuals_model2 <- residuals(model_2)
+acf(residuals_model2, main = "ACF of Residuals for Model 2")
+
